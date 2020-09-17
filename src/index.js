@@ -1,20 +1,25 @@
-import './style/index.css'
-import { $ } from './util'
-import API from './api/'
+import 'github-markdown-css' // eslint-disable-line import/no-unresolved
+import './style/index.less'
+import $ from './helper/query'
+import API from './api'
 import Template from './template'
-import Router from './router/'
+import Router from './router'
 import Obeserver from './observer'
 import { switchToHome, switchToPost } from './switch'
+import sleep from './switch/sleep'
+import Scroller from './scroller'
+import isMobile from './helper/mobile'
 
+const topBar = document.querySelector('#bar')
 const mirror = {
   __: {},
   issues: {},
   issue: {},
   comments: {},
-  scrollY: 0,
 }
 const TPL = new Template(mirror)
 const { perpage } = window.config
+const scroller = new Scroller()
 
 async function onPosts(type, params) {
   if (mirror.user) {
@@ -28,7 +33,6 @@ async function onPosts(type, params) {
 }
 
 function onPost({ id }) {
-  mirror.scrollY = window.scrollY
   mirror.getPost(id)
 }
 
@@ -42,6 +46,7 @@ const observer = new Obeserver(mirror)
 
 mirror.getPosts = async function getPosts(type, { cursor, e }) {
   document.title = window.config.title
+  topBar.style.width = '100%'
 
   const hash = cursor || '_'
 
@@ -71,17 +76,24 @@ mirror.getPosts = async function getPosts(type, { cursor, e }) {
     } else {
       TPL.issues(posts)
     }
+
+    await sleep(200)
   }
 
   if (e && e.oldURL.indexOf('/posts/') > -1) {
     await switchToHome()
+    scroller.stop(scroller.lastScrollY)
+    scroller.start(document.querySelector('.home'))
   }
-
-  window.scrollTo(0, this.scrollY)
 }
 
 mirror.getPost = async function getPost(number) {
   document.title = 'loading'
+  scroller.stop(0)
+
+  if (!isMobile()) {
+    topBar.style.width = 0
+  }
 
   let post = this.issue[number]
 
@@ -91,11 +103,13 @@ mirror.getPost = async function getPost(number) {
     const { repository } = await API.issue(number)
     post = repository.issue
     this.issue = Object.assign({ [number]: post }, this.issue)
+    await sleep(200)
   }
 
   document.title = `${post.title} - ${window.config.title}`
 
   switchToPost()
+  scroller.start(document.querySelector('.single'))
 }
 
 mirror.openComments = async function openComments(params, ele) {
@@ -154,6 +168,11 @@ router.init = (route) => {
     $('.single').addClass('page-current')
   } else {
     $('.home').addClass('page-current')
+    scroller.start(document.querySelector('.home'))
+  }
+
+  if (isMobile()) {
+    $('.page').addClass('scroll')
   }
 }
 
@@ -164,7 +183,14 @@ observer.watch({
   comments: TPL.comments.bind(TPL),
 })
 
+scroller.onScroll = (current, total) => {
+  if (!router.route.includes('/posts/')) {
+    topBar.style.width = '100%'
+  } else {
+    topBar.style.width = `${(current / total) * 100}%`
+  }
+}
+
 router.start()
 
-// eslint-disable-next-line no-console
-console.log('%c Github %c', 'background:#24272A; color:#ffffff', '', 'https://github.com/LoeiFy/Mirror')
+window.console.log('%c Github %c', 'background:#24272A; color:#ffffff', '', 'https://github.com/LoeiFy/Mirror')

@@ -1,7 +1,7 @@
 import timeFormat from './time'
 import backIcon from '../svg/back.svg'
-import footer from './footer'
-import { $, creator } from '../util'
+import $ from '../helper/query'
+import creator from '../helper/creator'
 
 const { user, repository } = window.config
 
@@ -15,6 +15,19 @@ class Issue {
   get comments() {
     const { number, comments: { totalCount } } = this.issue
     const frag = $(document.createDocumentFragment())
+
+    // should import footer from './footer' here
+    // but will cause page scroll problem
+    // i don not know why
+    const { title } = window.config
+    const footer = creator('div', {
+      id: 'footer',
+      innerHTML: `
+        &copy; ${(new Date()).getFullYear()} ${title}. Powered by
+        <a href="https://github.com/LoeiFy/Mirror" target="_blank">Mirror</a> .
+        <a href="https://github.com/${user}/${repository}/issues" target="_blank">Source</a>
+      `,
+    })
 
     if (totalCount === 0) {
       const a = creator('a', {
